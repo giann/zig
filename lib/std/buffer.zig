@@ -65,6 +65,15 @@ pub const Buffer = struct {
     }
 
     pub fn allocPrint(allocator: *Allocator, comptime format: []const u8, args: var) !Buffer {
+        var self = try Buffer.initNull(allocator);
+
+        try self.appendPrint(format, args);
+
+        return self;
+    }
+
+    pub fn appendPrint(self: *Buffer, comptime format: []const u8, args: var) !void {
+        const old_len = self.len();
         const countSize = struct {
             fn countSize(size: *usize, bytes: []const u8) (error{}!void) {
                 size.* += bytes.len;
@@ -72,9 +81,8 @@ pub const Buffer = struct {
         }.countSize;
         var size: usize = 0;
         std.fmt.format(&size, error{}, countSize, format, args) catch |err| switch (err) {};
-        var self = try Buffer.initSize(allocator, size);
-        assert((std.fmt.bufPrint(self.list.items, format, args) catch unreachable).len == size);
-        return self;
+        try self.resize(old_len + size);
+        assert((std.fmt.bufPrint(self.list.items[old_len..], format, args) catch unreachable).len == size);
     }
 
     pub fn deinit(self: *Buffer) void {
